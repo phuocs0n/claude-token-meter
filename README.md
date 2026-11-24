@@ -30,7 +30,7 @@ Công cụ **chỉ đọc** các file này, không sửa và không gửi dữ l
 
 ## Cài đặt
 
-Cần Python 3.9 trở lên.
+Cần Python 3.11 trở lên.
 
 ```bash
 git clone https://github.com/phuocs0n/claude-token-meter.git
@@ -132,7 +132,7 @@ Cấu trúc mã:
 
 ## English
 
-**Claude Token Meter** shows which Claude models you have used, how many tokens they took, and how many you will use at your current rate. It reads the JSONL session logs that Claude Code (CLI, the Code tab of the Claude desktop app, IDE extensions, Agent SDK) writes to `~/.claude/projects/`. Pure Python 3.9+, no dependencies, no API key, nothing leaves your machine.
+**Claude Token Meter** shows which Claude models you have used, how many tokens they took, and how many you will use at your current rate. It reads the JSONL session logs that Claude Code (CLI, the Code tab of the Claude desktop app, IDE extensions, Agent SDK) writes to `~/.claude/projects/`. Pure Python 3.11+, no dependencies, no API key, nothing leaves your machine.
 
 ```bash
 pip install .

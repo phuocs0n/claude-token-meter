@@ -1,6 +1,6 @@
 """Build the desktop app with PyInstaller, then check that it starts.
 
-    pip install pyinstaller
+    pip install pyinstaller pillow    # pillow turns the PNG icon into .icns on macOS
     python packaging/build.py                       # app only
     python packaging/build.py --installer --package # what the release workflow runs
 

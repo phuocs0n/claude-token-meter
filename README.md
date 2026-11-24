@@ -226,7 +226,7 @@ Cấu trúc mã:
 ### Tự build app
 
 ```bash
-pip install pyinstaller
+pip install pyinstaller pillow
 python packaging/build.py                        # tạo dist/ClaudeTokenMeter (macOS: dist/ClaudeTokenMeter.app) rồi tự kiểm tra
 python packaging/build.py --installer --package  # Windows: thêm bộ cài Setup .exe (cần Inno Setup 6) và các file phát hành trong dist/release
 ```
@@ -241,7 +241,7 @@ Phát hành phiên bản mới: tăng `__version__` trong `token_meter/__init__.
 
 **Claude Token Meter** shows which Claude models you have used, how many tokens they took, and how many you will use at your current rate. It reads the JSONL session logs that Claude Code (CLI, the Code tab of the Claude desktop app, IDE extensions, Agent SDK) writes to `~/.claude/projects/`. Pure Python 3.11+, no dependencies, no API key, nothing leaves your machine.
 
-**Desktop app** (no Python needed): download it from [Releases](https://github.com/phuocs0n/claude-token-meter/releases/latest): `ClaudeTokenMeter-Setup-<version>.exe` for Windows 10/11 (per-user install, no admin rights), the `-windows-x64-portable.zip`, `-macos-arm64.zip` (Apple Silicon) or `-linux-x64.tar.gz`. The app shows today's tokens, the 7-day rate, the 30-day forecast and the current 5-hour window in a small window, and opens the full dashboard in its own window. Closing the small window quits. The builds are not code-signed: on Windows choose **More info → Run anyway** in SmartScreen; on macOS right-click the app → **Open** the first time. To build it yourself: `pip install pyinstaller` and `python packaging/build.py`.
+**Desktop app** (no Python needed): download it from [Releases](https://github.com/phuocs0n/claude-token-meter/releases/latest): `ClaudeTokenMeter-Setup-<version>.exe` for Windows 10/11 (per-user install, no admin rights), the `-windows-x64-portable.zip`, `-macos-arm64.zip` (Apple Silicon) or `-linux-x64.tar.gz`. The app shows today's tokens, the 7-day rate, the 30-day forecast and the current 5-hour window in a small window, and opens the full dashboard in its own window. Closing the small window quits. The builds are not code-signed: on Windows choose **More info → Run anyway** in SmartScreen; on macOS right-click the app → **Open** the first time. To build it yourself: `pip install pyinstaller pillow` and `python packaging/build.py`.
 
 **How to run from source** (Python 3.11+):
 

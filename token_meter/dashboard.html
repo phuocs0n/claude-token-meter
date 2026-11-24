@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="__LANG__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Token Meter</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10); --wash: rgba(11,11,11,.05);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --other: #898781; --on-yellow: #0b0b0b;
+  --meter-fill: #2a78d6; --meter-proj: #9ec5f4; --meter-track: #e7f0fc; --warn: #b26b00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10); --wash: rgba(255,255,255,.06);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+    --on-yellow: #ffffff;
+    --meter-fill: #3987e5; --meter-proj: #1c5cab; --meter-track: #0d2a4f; --warn: #fab219;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10); --wash: rgba(255,255,255,.06);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --on-yellow: #ffffff;
+  --meter-fill: #3987e5; --meter-proj: #1c5cab; --meter-track: #0d2a4f; --warn: #fab219;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 22px; margin: 0; font-weight: 650; }
+h2 { font-size: 16px; margin: 28px 0 12px; font-weight: 650; }
+h3 { font-size: 14px; margin: 0; font-weight: 600; }
+.sub, .note { color: var(--ink2); margin: 4px 0 0; }
+.note { font-size: 12.5px; }
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.top-actions { display: flex; gap: 8px; }
+button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { background: var(--wash); }
+button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.card + .card, .grid2 + .card, .card + .grid2 { margin-top: 12px; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+.tiles > .card { margin: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+.tile .label { color: var(--ink2); font-size: 12.5px; }
+.tile .value { font-size: 22px; font-weight: 620; margin-top: 2px; }
+.tile .hint { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.hero .value { font-size: 52px; font-weight: 650; line-height: 1.1; margin: 6px 0 4px; }
+.hero .value small { font-size: 18px; font-weight: 500; color: var(--ink2); }
+.hero .lines div { color: var(--ink2); margin-top: 2px; }
+.filters { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  background: var(--page); padding: 10px 0; margin-top: 20px; border-bottom: 1px solid var(--border); }
+.filters .sep { width: 1px; height: 24px; background: var(--border); margin: 0 6px; }
+.filters .lab { color: var(--ink2); margin-right: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink2); font-size: 12.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+.chart { width: 100%; }
+.chart svg { display: block; overflow: visible; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .axis { stroke: var(--axis); stroke-width: 1; }
+svg .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .rowlab { fill: var(--ink2); font-size: 12px; }
+svg .hit { fill: transparent; outline: none; }
+svg .hit:hover, svg .hit:focus { fill: var(--wash); }
+svg .mark { pointer-events: none; }
+.meter { position: relative; height: 12px; border-radius: 6px; background: var(--meter-track); overflow: hidden; margin: 12px 0 8px; }
+.meter div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+.meter .proj { background: var(--meter-proj); }
+.meter .used { background: var(--meter-fill); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+.kv dt { color: var(--ink2); } .kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.warn { color: var(--warn); }
+.seg { display: flex; gap: 2px; height: 28px; margin: 8px 0 12px; }
+.seg div { border-radius: 4px; color: #fff; font-size: 12px; font-weight: 600; display: flex; align-items: center;
+  padding-left: 8px; overflow: hidden; white-space: nowrap; min-width: 0; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; color: var(--ink2); font-weight: 500; border-bottom: 1px solid var(--axis); padding: 6px 8px; white-space: nowrap; }
+td { border-bottom: 1px solid var(--grid); padding: 6px 8px; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td .sw { margin-right: 6px; vertical-align: -1px; }
+.sharebar { display: inline-block; height: 6px; border-radius: 3px; background: var(--ink2); opacity: .55; vertical-align: middle; margin-left: 8px; }
+.hero .label { color: var(--ink2); font-size: 12.5px; }
+details summary { cursor: pointer; color: var(--ink2); margin-top: 8px; font-size: 13px; }
+.switches { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); }
+.switches b { color: var(--ink); font-weight: 600; }
+.tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 300px; }
+.tip .t { color: var(--ink2); margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 8px; }
+.tip .r i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+.tip .r b { font-variant-numeric: tabular-nums; }
+.tip .r span { color: var(--ink2); }
+footer { margin-top: 28px; }
+.empty { padding: 40px 0; color: var(--ink2); }
+@media (max-width: 560px) { .hero .value { font-size: 40px; } .filters .sep { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top">
+    <div>
+      <h1>Claude Token Meter</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+    <div class="top-actions">
+      <button id="langBtn" type="button"></button>
+      <button id="themeBtn" type="button"></button>
+    </div>
+  </header>
+
+  <h2 data-t="now_title"></h2>
+  <div class="grid2">
+    <div class="card hero" id="heroCard"></div>
+    <div class="card" id="blockCard"></div>
+  </div>
+  <div class="tiles" id="nowTiles"></div>
+  <div class="card">
+    <div class="card-head"><h3 data-t="fc_title"></h3><div class="legend" id="fcLegend"></div></div>
+    <div class="chart" id="fcChart"></div>
+  </div>
+
+  <div class="filters" role="toolbar" id="filters"></div>
+
+  <div class="tiles" id="rangeTiles"></div>
+
+  <div class="card">
+    <div class="card-head"><h3 id="dailyTitle"></h3><div class="legend" id="dailyLegend"></div></div>
+    <div class="chart" id="dailyChart"></div>
+    <details><summary data-t="show_table"></summary><div class="table-wrap" id="dailyTable"></div></details>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3 data-t="history_title"></h3></div>
+    <div class="chart" id="historyChart"></div>
+    <div class="note" data-t="switches_title" style="margin-top:12px"></div>
+    <ul class="switches" id="switches"></ul>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3 data-t="models_title"></h3></div>
+    <div class="table-wrap" id="modelTable"></div>
+  </div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div class="card">
+      <div class="card-head"><h3 data-t="types_title"></h3></div>
+      <div class="seg" id="typeBar"></div>
+      <div class="legend" id="typeLegend"></div>
+      <p class="note" data-t="cache_note"></p>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3 data-t="hours_title"></h3></div>
+      <div class="chart" id="hourChart"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3 data-t="projects_title"></h3></div>
+    <div class="table-wrap" id="projectTable"></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3 data-t="sessions_title"></h3></div>
+    <div class="table-wrap" id="sessionTable"></div>
+  </div>
+
+  <footer>
+    <p class="note" data-t="cost_note"></p>
+    <p class="note" id="sourceNote"></p>
+  </footer>
+</div>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+(() => {
+"use strict";
+let D = JSON.parse(document.getElementById("data").textContent);
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage unavailable */ } },
+};
+
+const I18N = {
+  vi: {
+    subtitle: "Dữ liệu {a} → {b} · {req} request · {n} model",
+    now_title: "Hiện tại và dự báo",
+    hero_label: "Dự kiến 30 ngày tới, theo tốc độ {w} ngày gần nhất",
+    tokens: "token", api_cost: "≈ {c} theo giá API",
+    rate_line: "Tốc độ: {r} token/ngày · {c}/ngày · {q} request/ngày",
+    alt_line: "Theo tốc độ 30 ngày: {a} · Theo xu hướng: {b}",
+    today: "Hôm nay", last24: "24 giờ qua", last1h: "1 giờ qua",
+    next24: "24 giờ tới", next7: "7 ngày tới", eom: "Đến hết tháng {m}", eom_hint: "đã dùng {d}",
+    block_title: "Cửa sổ 5 giờ hiện tại", block_none: "Không có cửa sổ 5 giờ nào đang mở.",
+    block_time: "{s} → {e} · còn {left}", block_used: "Đã dùng", block_proj: "Dự kiến khi hết cửa sổ",
+    block_max: "Cửa sổ lớn nhất trước đây", block_rate: "Tốc độ", per_min: "/phút",
+    block_over: "Với tốc độ này, cửa sổ hiện tại sẽ vượt cửa sổ lớn nhất trước đây.",
+    block_note: "Gói Claude giới hạn lượng dùng theo cửa sổ 5 giờ; cửa sổ mở từ đầu giờ của request đầu tiên.",
+    fc_title: "Token mỗi ngày: 30 ngày qua và 7 ngày tới",
+    actual: "Thực tế", projected: "Dự báo (tốc độ {w} ngày)", trend: "Theo xu hướng", today_partial: "Hôm nay, chưa hết ngày",
+    range: "Khoảng thời gian", r7: "7 ngày", r30: "30 ngày", r90: "90 ngày", rall: "Tất cả",
+    show: "Hiển thị", m_tokens: "Token", m_cost: "Chi phí",
+    total_tokens: "Tổng token", input: "Input", output: "Output", cache_write: "Ghi cache", cache_read: "Đọc cache",
+    cost: "Chi phí ước tính", requests: "Request", models_used: "Model đã dùng", of_total: "{p} tổng",
+    daily_tokens: "Token mỗi ngày theo model", daily_cost: "Chi phí mỗi ngày theo model (USD)",
+    show_table: "Xem dạng bảng",
+    history_title: "Lịch sử model: những ngày mỗi model được dùng",
+    switches_title: "Các lần đổi model chính (model có nhiều token nhất trong ngày):",
+    started: "bắt đầu với",
+    models_title: "Chi tiết theo model",
+    c_model: "Model", c_req: "Request", c_total: "Tổng", c_cost: "Chi phí", c_share: "Tỷ trọng",
+    c_first: "Dùng lần đầu", c_last: "Dùng gần nhất", c_days: "Số ngày", c_day: "Ngày",
+    types_title: "Token theo loại",
+    cache_note: "Đọc cache là ngữ cảnh được dùng lại giữa các lượt: chiếm phần lớn số token nhưng giá chỉ bằng khoảng 1/10 đến 1/20 input thường.",
+    hours_title: "Token theo giờ trong ngày",
+    projects_title: "Dự án dùng nhiều token nhất", sessions_title: "Phiên dùng nhiều token nhất",
+    c_project: "Dự án", c_sessions: "Số phiên", c_session: "Phiên", c_start: "Bắt đầu", c_end: "Gần nhất", c_models: "Model",
+    cost_note: "Chi phí là ước tính theo bảng giá API công khai (USD). Gói Pro/Max/Team không tính tiền theo token, nên con số này chỉ để so sánh.",
+    source: "Nguồn: {roots} · {files} file · đã gộp {dups} dòng trùng · tạo lúc {t}",
+    live: "Đang chạy trực tiếp, tự cập nhật mỗi 60 giây.",
+    unknown: "Model chưa có giá (tính $0): {m}.",
+    other: "Khác", no_data: "Không tìm thấy dữ liệu sử dụng.", no_range: "Không có dữ liệu trong khoảng này.",
+    lang_btn: "English", theme_dark: "Giao diện tối", theme_light: "Giao diện sáng",
+  },
+  en: {
+    subtitle: "Data {a} → {b} · {req} requests · {n} models",
+    now_title: "Now and forecast",
+    hero_label: "Expected over the next 30 days, at the rate of the last {w} days",
+    tokens: "tokens", api_cost: "≈ {c} at API prices",
+    rate_line: "Rate: {r} tokens/day · {c}/day · {q} requests/day",
+    alt_line: "At the 30-day rate: {a} · By trend: {b}",
+    today: "Today", last24: "Last 24 hours", last1h: "Last hour",
+    next24: "Next 24 hours", next7: "Next 7 days", eom: "By end of {m}", eom_hint: "{d} used so far",
+    block_title: "Current 5-hour window", block_none: "No 5-hour window is open right now.",
+    block_time: "{s} → {e} · {left} left", block_used: "Used", block_proj: "Expected by window end",
+    block_max: "Largest past window", block_rate: "Rate", per_min: "/min",
+    block_over: "At this rate the current window will pass your largest past window.",
+    block_note: "Claude plans meter use in 5-hour windows; a window opens at the top of the hour of its first request.",
+    fc_title: "Tokens per day: last 30 days and next 7",
+    actual: "Actual", projected: "Forecast ({w}-day rate)", trend: "By trend", today_partial: "Today, still in progress",
+    range: "Range", r7: "7 days", r30: "30 days", r90: "90 days", rall: "All",
+    show: "Show", m_tokens: "Tokens", m_cost: "Cost",
+    total_tokens: "Total tokens", input: "Input", output: "Output", cache_write: "Cache write", cache_read: "Cache read",
+    cost: "Estimated cost", requests: "Requests", models_used: "Models used", of_total: "{p} of total",
+    daily_tokens: "Tokens per day by model", daily_cost: "Cost per day by model (USD)",
+    show_table: "Show as table",
+    history_title: "Model history: the days each model was used",
+    switches_title: "Changes of main model (the model with most tokens that day):",
+    started: "started with",
+    models_title: "By model",
+    c_model: "Model", c_req: "Requests", c_total: "Total", c_cost: "Cost", c_share: "Share",
+    c_first: "First used", c_last: "Last used", c_days: "Days", c_day: "Day",
+    types_title: "Tokens by type",
+    cache_note: "Cache reads are context reused between turns: most of the tokens, but priced at about 1/10 to 1/20 of fresh input.",
+    hours_title: "Tokens by hour of day",
+    projects_title: "Projects using the most tokens", sessions_title: "Sessions using the most tokens",
+    c_project: "Project", c_sessions: "Sessions", c_session: "Session", c_start: "Start", c_end: "Last", c_models: "Models",
+    cost_note: "Cost is estimated from public API prices (USD). Pro/Max/Team plans are not billed per token, so it is for comparison only.",
+    source: "Source: {roots} · {files} files · {dups} duplicate lines merged · generated {t}",
+    live: "Live: refreshes every 60 seconds.",
+    unknown: "Models without a price (counted as $0): {m}.",
+    other: "Other", no_data: "No usage data found.", no_range: "No data in this range.",
+    lang_btn: "Tiếng Việt", theme_dark: "Dark theme", theme_light: "Light theme",
+  },
+};
+
+let lang = store.get("tm-lang") || (D.meta && D.meta.lang) || "vi";
+if (!I18N[lang]) lang = "vi";
+let range = store.get("tm-range") || "30";
+let metric = "tokens";
+
+function T(key, vars) {
+  let s = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
+  if (vars) for (const k in vars) s = s.split("{" + k + "}").join(vars[k]);
+  return s;
+}
+
+// ---------- formatting ----------
+function fmt(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return (n / 1e9).toFixed(2) + "B";
+  if (a >= 1e6) return (n / 1e6).toFixed(2) + "M";
+  if (a >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(Math.round(n));
+}
+function fmtAxis(n) {
+  const a = Math.abs(n);
+  if (a >= 1e9) return +(n / 1e9).toFixed(1) + "B";
+  if (a >= 1e6) return +(n / 1e6).toFixed(1) + "M";
+  if (a >= 1e4) return +(n / 1e3).toFixed(0) + "K";
+  return Math.round(n).toLocaleString("en-US");
+}
+function usd(x) { return "$" + x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function usdAxis(x) { return "$" + (x >= 100 ? Math.round(x) : +x.toFixed(2)); }
+function pct(x) { return (x * 100).toFixed(1) + "%"; }
+function full(n) { return Math.round(n).toLocaleString(lang === "vi" ? "vi-VN" : "en-US"); }
+function short(m) { return m.startsWith("claude-") ? m.slice(7) : m; }
+function dayLabel(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return lang === "vi" ? `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`
+                       : new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function dateTime(iso) {
+  const d = new Date(iso);
+  const p = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function hm(iso) { const d = new Date(iso); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function duration(min) { const h = Math.floor(min / 60), m = Math.round(min % 60); return `${h}h${String(m).padStart(2, "0")}m`; }
+
+// ---------- DOM helpers (all data text goes through textContent) ----------
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function swatch(color) { const s = h("span", "sw"); s.style.background = color; return s; }
+const $ = (id) => document.getElementById(id);
+
+// ---------- tooltip ----------
+const tip = $("tip");
+function showTip(ev, content) {
+  tip.textContent = "";
+  tip.appendChild(h("div", "t", content.title));
+  for (const r of content.rows) {
+    const row = h("div", "r");
+    const key = h("i"); key.style.background = r.color || "var(--ink2)";
+    row.append(key, h("b", null, r.value), h("span", null, r.label));
+    tip.appendChild(row);
+  }
+  tip.hidden = false;
+  moveTip(ev);
+}
+function moveTip(ev) {
+  let cx = ev.clientX, cy = ev.clientY;
+  if (cx == null || (cx === 0 && cy === 0 && ev.target && ev.target.getBoundingClientRect)) {
+    const b = ev.target.getBoundingClientRect(); cx = b.left + b.width / 2; cy = b.top + 8;
+  }
+  const pad = 14, r = tip.getBoundingClientRect();
+  let x = cx + pad, y = cy + pad;
+  if (x + r.width > innerWidth - 8) x = cx - r.width - pad;
+  if (y + r.height > innerHeight - 8) y = cy - r.height - pad;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+function hideTip() { tip.hidden = true; }
+function bindTip(node, fn) {
+  node.addEventListener("pointerenter", (e) => showTip(e, fn()));
+  node.addEventListener("pointermove", moveTip);
+  node.addEventListener("pointerleave", hideTip);
+  node.addEventListener("focus", (e) => showTip(e, fn()));
+  node.addEventListener("blur", hideTip);
+}
+
+// ---------- colors: follow the model, assigned once from all data ----------
+let COLORS = {}, SERIES = [];
+function assignColors() {
+  const all = D.models.map((m) => m.model);
+  const colored = all.length > 8 ? all.slice(0, 7) : all;
+  const byFirst = D.models.filter((m) => colored.includes(m.model))
+    .sort((a, b) => (a.first < b.first ? -1 : a.first > b.first ? 1 : 0));
+  COLORS = {};
+  byFirst.forEach((m, i) => { COLORS[m.model] = `var(--s${i + 1})`; });
+  SERIES = byFirst.map((m) => ({ key: m.model, label: short(m.model), color: COLORS[m.model], models: [m.model] }));
+  const rest = all.filter((m) => !COLORS[m]);
+  rest.forEach((m) => { COLORS[m] = "var(--other)"; });
+  if (rest.length) SERIES.push({ key: "__other", label: T("other"), color: "var(--other)", models: rest });
+}
+
+// ---------- aggregation ----------
+function rangeIdx() {
+  const n = D.days.length;
+  if (range === "all") return [0, n - 1];
+  return [Math.max(0, n - Number(range)), n - 1];
+}
+function dayValue(model, i, what) {
+  const c = D.cells[model];
+  if (what === "cost") return c.cost[i];
+  return c.in[i] + c.out[i] + c.cw[i] + c.cr[i];
+}
+function sumModel(model, i0, i1) {
+  const c = D.cells[model], o = { in: 0, out: 0, cw: 0, cr: 0, cost: 0, req: 0, days: 0 };
+  for (let i = i0; i <= i1; i++) {
+    for (const k of ["in", "out", "cw", "cr", "cost", "req"]) o[k] += c[k][i];
+    if (c.req[i] > 0) o.days++;
+  }
+  o.total = o.in + o.out + o.cw + o.cr;
+  return o;
+}
+function sumAll(i0, i1) {
+  const o = { in: 0, out: 0, cw: 0, cr: 0, cost: 0, req: 0, total: 0, models: 0 };
+  for (const m of D.models) {
+    const s = sumModel(m.model, i0, i1);
+    for (const k of ["in", "out", "cw", "cr", "cost", "req", "total"]) o[k] += s[k];
+    if (s.req > 0) o.models++;
+  }
+  return o;
+}
+function sumSparse(days, i0, i1) {
+  const o = { total: 0, cost: 0, req: 0 };
+  for (const [i, t, c, q] of days) if (i >= i0 && i <= i1) { o.total += t; o.cost += c; o.req += q; }
+  return o;
+}
+
+// ---------- charts ----------
+function niceMax(v) {
+  if (!(v > 0)) return 1;
+  const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e;
+}
+function roundTop(x, y, w, hgt, r) {
+  r = Math.max(0, Math.min(r, w / 2, hgt));
+  return `M${x},${y + hgt}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + hgt}Z`;
+}
+
+// stacks: array (one per x) of [{value, color}] bottom-first. opt: labels, fmtY, tooltip(i), fade(i), height
+function barChart(host, stacks, opt) {
+  host.textContent = "";
+  const W = Math.max(host.clientWidth, 280), H = opt.height || 240;
+  const m = { t: 8, r: 6, b: 24, l: 52 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const svg = svgEl("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opt.aria || "" }, host);
+  const totals = stacks.map((s) => s.reduce((a, b) => a + b.value, 0));
+  const ymax = niceMax(Math.max(0, ...totals));
+  for (let k = 0; k <= 4; k++) {
+    const y = m.t + ih - (ih * k) / 4;
+    svgEl("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, class: k === 0 ? "axis" : "grid" }, svg);
+    svgEl("text", { x: m.l - 8, y: y + 4, "text-anchor": "end", class: "tick" }, svg).textContent = opt.fmtY((ymax * k) / 4);
+  }
+  const n = stacks.length, band = iw / Math.max(n, 1), bw = Math.max(1, Math.min(24, band * 0.72));
+  const step = Math.max(1, Math.ceil(64 / band));
+  const hits = svgEl("g", {}, svg), marks = svgEl("g", { class: "mark" }, svg);
+  stacks.forEach((stack, i) => {
+    const x0 = m.l + band * i, x = x0 + (band - bw) / 2;
+    const hit = svgEl("rect", { x: x0, y: m.t, width: band, height: ih, class: "hit", tabindex: 0 }, hits);
+    bindTip(hit, () => opt.tooltip(i));
+    let y = m.t + ih;
+    const segs = stack.filter((s) => s.value > 0);
+    segs.forEach((s, j) => {
+      const full = (s.value / ymax) * ih, top = y - full;
+      const hh = j > 0 && full > 2.5 ? full - 2 : full; // 2px surface gap between stacked parts
+      const attrs = { style: `fill:${s.color}` };
+      if (opt.fade && opt.fade(i)) attrs["fill-opacity"] = 0.35;
+      if (j === segs.length - 1) svgEl("path", { ...attrs, d: roundTop(x, top, bw, hh, 4) }, marks);
+      else svgEl("rect", { ...attrs, x, y: top, width: bw, height: hh }, marks);
+      y = top;
+    });
+    if (i % step === 0) {
+      svgEl("text", { x: x0 + band / 2, y: H - 6, "text-anchor": "middle", class: "tick" }, svg).textContent = opt.labels[i];
+    }
+  });
+}
+
+function legend(host, items) {
+  host.textContent = "";
+  for (const it of items) {
+    const s = h("span");
+    const sw = swatch(it.color);
+    if (it.faded) sw.style.opacity = 0.35;
+    s.append(sw, document.createTextNode(it.label));
+    host.appendChild(s);
+  }
+}
+
+function table(host, heads, rows, numFrom) {
+  host.textContent = "";
+  if (!rows.length) { host.appendChild(h("p", "note", T("no_range"))); return; }
+  const tb = h("table"), thead = h("thead"), tr = h("tr");
+  heads.forEach((c, i) => tr.appendChild(h("th", i >= numFrom ? "num" : "", c)));
+  thead.appendChild(tr); tb.appendChild(thead);
+  const body = h("tbody");
+  for (const r of rows) {
+    const row = h("tr");
+    r.forEach((c, i) => {
+      const td = h("td", i >= numFrom && !(c && c.noNum) ? "num" : "");
+      if (c instanceof Node) td.appendChild(c);
+      else if (c && c.node) { td.appendChild(c.node); if (c.cls) td.className += " " + c.cls; if (c.title) td.title = c.title; }
+      else td.textContent = c;
+      row.appendChild(td);
+    });
+    body.appendChild(row);
+  }
+  tb.appendChild(body); host.appendChild(tb);
+}
+
+// ---------- sections ----------
+function renderHeader() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach((e) => { e.textContent = T(e.dataset.t); });
+  const n = D.days.length;
+  const req = D.models.reduce((a, m) => a + D.cells[m.model].req.reduce((x, y) => x + y, 0), 0);
+  $("subtitle").textContent = T("subtitle", { a: D.days[0], b: D.days[n - 1], req: full(req), n: D.models.length });
+  $("langBtn").textContent = T("lang_btn");
+  $("themeBtn").textContent = isDark() ? T("theme_light") : T("theme_dark");
+  const notes = [T("source", { roots: D.meta.roots.join(", "), files: D.meta.files, dups: full(D.meta.duplicates), t: dateTime(D.meta.generated) })];
+  if (D.meta.unknown_models.length) notes.push(T("unknown", { m: D.meta.unknown_models.join(", ") }));
+  if (D.meta.live) notes.push(T("live"));
+  $("sourceNote").textContent = notes.join(" ");
+}
+
+function tile(label, value, hint) {
+  const t = h("div", "card tile");
+  t.append(h("div", "label", label), h("div", "value", value));
+  if (hint) t.appendChild(h("div", "hint", hint));
+  return t;
+}
+
+function renderNow() {
+  const F = D.forecast, w = D.meta.window;
+  const hero = $("heroCard"); hero.textContent = "";
+  const h30 = F.horizons["30d"], rate = F.rate.per_day;
+  hero.appendChild(h("div", "label", T("hero_label", { w })));
+  const v = h("div", "value", fmt(h30.tokens) + " ");
+  v.appendChild(h("small", null, T("tokens")));
+  hero.appendChild(v);
+  const lines = h("div", "lines");
+  lines.append(
+    h("div", null, T("api_cost", { c: usd(h30.cost) })),
+    h("div", null, T("rate_line", { r: fmt(rate.total), c: usd(rate.cost), q: rate.requests.toFixed(0) })),
+    h("div", null, T("alt_line", { a: fmt(h30.tokens_30d_rate), b: fmt(h30.trend) })),
+  );
+  hero.appendChild(lines);
+
+  const n = D.days.length, today = sumAll(n - 1, n - 1), eom = F.end_of_month;
+  const tiles = $("nowTiles"); tiles.textContent = "";
+  tiles.append(
+    tile(T("today"), fmt(today.total), usd(today.cost)),
+    tile(T("last1h"), fmt(F.last_hour.total), usd(F.last_hour.cost)),
+    tile(T("last24"), fmt(F.last_24h.total), usd(F.last_24h.cost)),
+    tile(T("next24"), fmt(F.horizons["24h"].tokens), usd(F.horizons["24h"].cost)),
+    tile(T("next7"), fmt(F.horizons["7d"].tokens), usd(F.horizons["7d"].cost)),
+    tile(T("eom", { m: eom.month }), fmt(eom.tokens), usd(eom.cost) + " · " + T("eom_hint", { d: fmt(eom.to_date) })),
+  );
+
+  const card = $("blockCard"); card.textContent = "";
+  card.appendChild(h("h3", null, T("block_title")));
+  const B = F.current_block;
+  if (!B) {
+    card.appendChild(h("p", "note", T("block_none")));
+  } else {
+    card.appendChild(h("p", "note", T("block_time", { s: hm(B.start), e: hm(B.end), left: duration(B.remaining_min) })));
+    const scale = Math.max(B.projected_total, B.max_past_block || 0, B.total, 1);
+    const meter = h("div", "meter");
+    const proj = h("div", "proj"); proj.style.width = (100 * B.projected_total / scale) + "%";
+    const used = h("div", "used"); used.style.width = (100 * B.total / scale) + "%";
+    meter.append(proj, used);
+    meter.setAttribute("role", "img");
+    meter.setAttribute("aria-label", `${T("block_used")} ${fmt(B.total)}, ${T("block_proj")} ${fmt(B.projected_total)}`);
+    card.appendChild(meter);
+    const dl = h("dl", "kv");
+    const kv = (k, val, color) => {
+      const dt = h("dt"); if (color) dt.appendChild(swatch(color)); dt.appendChild(document.createTextNode((color ? " " : "") + k));
+      dl.append(dt, h("dd", null, val));
+    };
+    kv(T("block_used"), `${fmt(B.total)} · ${usd(B.cost)}`, "var(--meter-fill)");
+    kv(T("block_proj"), `${fmt(B.projected_total)} · ${usd(B.projected_cost)}`, "var(--meter-proj)");
+    kv(T("block_rate"), fmt(B.tokens_per_min) + T("per_min"));
+    if (B.max_past_block) kv(T("block_max"), fmt(B.max_past_block));
+    card.appendChild(dl);
+    if (B.max_past_block && B.projected_total > B.max_past_block) card.appendChild(h("p", "note warn", "⚠ " + T("block_over")));
+  }
+  card.appendChild(h("p", "note", T("block_note")));
+
+  // last 30 days actual + 7 days forecast
+  const start = Math.max(0, n - 30), stacks = [], labels = [], info = [];
+  for (let i = start; i < n; i++) {
+    let tot = 0, cost = 0;
+    for (const m of D.models) { tot += dayValue(m.model, i, "tokens"); cost += D.cells[m.model].cost[i]; }
+    stacks.push([{ value: tot, color: "var(--s1)" }]); labels.push(dayLabel(D.days[i]));
+    info.push({ title: D.days[i] + (i === n - 1 ? " · " + T("today_partial") : ""), rows: [
+      { color: "var(--s1)", value: fmt(tot), label: T("actual") },
+      { value: usd(cost), label: T("cost") }] });
+  }
+  for (const d of F.next_days) {
+    stacks.push([{ value: d.tokens, color: "var(--s1)" }]); labels.push(dayLabel(d.date));
+    info.push({ title: d.date, rows: [
+      { color: "var(--s1)", value: fmt(d.tokens), label: T("projected", { w }) },
+      { value: fmt(d.trend), label: T("trend") }] });
+  }
+  const nActual = n - start;
+  barChart($("fcChart"), stacks, { labels, fmtY: fmtAxis, tooltip: (i) => info[i], fade: (i) => i >= nActual,
+    height: 220, aria: T("fc_title") });
+  legend($("fcLegend"), [{ label: T("actual"), color: "var(--s1)" }, { label: T("projected", { w }), color: "var(--s1)", faded: true }]);
+}
+
+function renderFilters() {
+  const bar = $("filters"); bar.textContent = "";
+  bar.appendChild(h("span", "lab", T("range")));
+  for (const r of ["7", "30", "90", "all"]) {
+    const b = h("button", null, T("r" + r)); b.type = "button";
+    b.setAttribute("aria-pressed", String(range === r));
+    b.addEventListener("click", () => { range = r; store.set("tm-range", r); renderRange(); renderFilters(); });
+    bar.appendChild(b);
+  }
+  bar.appendChild(h("span", "sep"));
+  bar.appendChild(h("span", "lab", T("show")));
+  for (const mt of ["tokens", "cost"]) {
+    const b = h("button", null, T("m_" + mt)); b.type = "button";
+    b.setAttribute("aria-pressed", String(metric === mt));
+    b.addEventListener("click", () => { metric = mt; renderDaily(); renderFilters(); });
+    bar.appendChild(b);
+  }
+}
+
+function renderRange() {
+  const [i0, i1] = rangeIdx(), s = sumAll(i0, i1), tot = s.total || 1;
+  const tiles = $("rangeTiles"); tiles.textContent = "";
+  tiles.append(
+    tile(T("total_tokens"), fmt(s.total), full(s.total)),
+    tile(T("input"), fmt(s.in), T("of_total", { p: pct(s.in / tot) })),
+    tile(T("output"), fmt(s.out), T("of_total", { p: pct(s.out / tot) })),
+    tile(T("cache_write"), fmt(s.cw), T("of_total", { p: pct(s.cw / tot) })),
+    tile(T("cache_read"), fmt(s.cr), T("of_total", { p: pct(s.cr / tot) })),
+    tile(T("cost"), usd(s.cost)),
+    tile(T("requests"), full(s.req)),
+    tile(T("models_used"), String(s.models)),
+  );
+  renderDaily(); renderHistory(); renderModels(); renderTypes(s); renderHours(); renderProjects(); renderSessions();
+}
+
+function renderDaily() {
+  const [i0, i1] = rangeIdx();
+  $("dailyTitle").textContent = metric === "cost" ? T("daily_cost") : T("daily_tokens");
+  const f = metric === "cost" ? usd : fmt;
+  const stacks = [], labels = [], rowsT = [];
+  for (let i = i0; i <= i1; i++) {
+    const stack = SERIES.map((se) => ({
+      key: se.key, color: se.color, label: se.label,
+      value: se.models.reduce((a, m) => a + dayValue(m, i, metric), 0),
+    }));
+    stacks.push(stack); labels.push(dayLabel(D.days[i]));
+    const total = stack.reduce((a, b) => a + b.value, 0);
+    rowsT.push([D.days[i], ...stack.map((s) => (s.value ? f(s.value) : "")), f(total)]);
+  }
+  barChart($("dailyChart"), stacks, {
+    labels, fmtY: metric === "cost" ? usdAxis : fmtAxis, aria: $("dailyTitle").textContent,
+    tooltip: (k) => {
+      const st = stacks[k], total = st.reduce((a, b) => a + b.value, 0);
+      return { title: `${D.days[i0 + k]} · ${f(total)}`,
+               rows: st.filter((s) => s.value > 0).slice().reverse().map((s) => ({ color: s.color, value: f(s.value), label: s.label })) };
+    },
+  });
+  legend($("dailyLegend"), SERIES.map((s) => ({ label: s.label, color: s.color })));
+  table($("dailyTable"), [T("c_day"), ...SERIES.map((s) => s.label), T("c_total")], rowsT.reverse(), 1);
+}
+
+function renderHistory() {
+  const [i0, i1] = rangeIdx(), host = $("historyChart");
+  host.textContent = "";
+  const rows = D.models.filter((m) => sumModel(m.model, i0, i1).req > 0)
+    .sort((a, b) => (a.first < b.first ? -1 : 1));
+  if (!rows.length) { host.appendChild(h("p", "note", T("no_range"))); return; }
+  const W = Math.max(host.clientWidth, 280), labW = W < 500 ? 92 : 128, rowH = 22;
+  const H = rows.length * rowH + 26, n = i1 - i0 + 1, band = (W - labW - 6) / n;
+  const cw = band > 3 ? band - 1.5 : band;
+  const svg = svgEl("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": T("history_title") }, host);
+  rows.forEach((m, r) => {
+    const y = r * rowH + 4, color = COLORS[m.model];
+    svgEl("rect", { x: 0, y: y + 3, width: 8, height: 8, rx: 2, style: `fill:${color}` }, svg);
+    svgEl("text", { x: 14, y: y + 11, class: "rowlab" }, svg).textContent = short(m.model);
+    svgEl("line", { x1: labW, x2: W - 6, y1: y + 7, y2: y + 7, class: "grid" }, svg);
+    const c = D.cells[m.model];
+    for (let i = i0; i <= i1; i++) {
+      if (!c.req[i]) continue;
+      const x = labW + (i - i0) * band;
+      svgEl("rect", { x, y: y + 1, width: Math.max(cw, 1), height: 12, rx: cw >= 4 ? 2 : 0, style: `fill:${color}`, class: "mark" }, svg);
+      const hit = svgEl("rect", { x: x - 2, y: y - 3, width: Math.max(band, 6) + 4, height: rowH, class: "hit", tabindex: 0 }, svg);
+      const tot = dayValue(m.model, i, "tokens"), day = D.days[i];
+      bindTip(hit, () => ({ title: `${short(m.model)} · ${day}`, rows: [
+        { color, value: fmt(tot), label: T("tokens") },
+        { value: full(c.req[i]), label: T("requests") },
+        { value: usd(c.cost[i]), label: T("cost") }] }));
+    }
+  });
+  const step = Math.max(1, Math.ceil(64 / band));
+  for (let i = i0; i <= i1; i++) {
+    if ((i - i0) % step) continue;
+    svgEl("text", { x: labW + (i - i0) * band + band / 2, y: H - 6, "text-anchor": "middle", class: "tick" }, svg).textContent = dayLabel(D.days[i]);
+  }
+  const ul = $("switches"); ul.textContent = "";
+  for (const s of D.switches) {
+    if (s.date < D.days[i0] || s.date > D.days[i1]) continue;
+    const li = h("li");
+    li.append(document.createTextNode(dayLabel(s.date) + " "));
+    if (s.previous) li.append(document.createTextNode(short(s.previous) + " → "));
+    else li.append(document.createTextNode(T("started") + " "));
+    li.append(h("b", null, short(s.model)));
+    ul.appendChild(li);
+  }
+}
+
+function renderModels() {
+  const [i0, i1] = rangeIdx();
+  const list = D.models.map((m) => ({ m, s: sumModel(m.model, i0, i1) })).filter((x) => x.s.req > 0)
+    .sort((a, b) => b.s.total - a.s.total);
+  const grand = list.reduce((a, x) => a + x.s.total, 0) || 1;
+  const rows = list.map(({ m, s }) => {
+    const name = h("span"); name.append(swatch(COLORS[m.model]), document.createTextNode(short(m.model)));
+    const share = h("span"); share.textContent = pct(s.total / grand);
+    const bar = h("span", "sharebar"); bar.style.width = Math.max(2, 60 * s.total / grand) + "px"; share.appendChild(bar);
+    return [name, full(s.req), fmt(s.in), fmt(s.out), fmt(s.cw), fmt(s.cr), fmt(s.total), usd(s.cost), share,
+            String(s.days), dateTime(m.first), dateTime(m.last)];
+  });
+  table($("modelTable"), [T("c_model"), T("c_req"), T("input"), T("output"), T("cache_write"), T("cache_read"),
+    T("c_total"), T("c_cost"), T("c_share"), T("c_days"), T("c_first"), T("c_last")], rows, 1);
+}
+
+function renderTypes(s) {
+  const parts = [
+    { label: T("input"), v: s.in, color: "var(--s1)", ink: "#fff" },
+    { label: T("output"), v: s.out, color: "var(--s2)", ink: "#fff" },
+    { label: T("cache_write"), v: s.cw, color: "var(--s3)", ink: "#fff" },
+    { label: T("cache_read"), v: s.cr, color: "var(--s4)", ink: "var(--on-yellow)" },
+  ];
+  const tot = s.total || 1, bar = $("typeBar"); bar.textContent = "";
+  bar.setAttribute("role", "img");
+  bar.setAttribute("aria-label", parts.map((p) => `${p.label} ${pct(p.v / tot)}`).join(", "));
+  for (const p of parts) {
+    if (!p.v) continue;
+    const wide = p.v / tot >= 0.04;
+    const b = h("div", null, wide ? pct(p.v / tot) : "");
+    b.style.flex = `${p.v} 0 0`; b.style.background = p.color; b.style.color = p.ink;
+    if (!wide) b.style.padding = "0";
+    b.tabIndex = 0;
+    bindTip(b, () => ({ title: p.label, rows: [{ color: p.color, value: fmt(p.v), label: pct(p.v / tot) }] }));
+    bar.appendChild(b);
+  }
+  requestAnimationFrame(() => {  // a block too narrow for its label prints none
+    for (const b of bar.children) if (b.scrollWidth > b.clientWidth + 1) b.textContent = "";
+  });
+  legend($("typeLegend"), parts.map((p) => ({ label: `${p.label} ${fmt(p.v)}`, color: p.color })));
+}
+
+function renderHours() {
+  const [i0, i1] = rangeIdx(), hrs = new Array(24).fill(0);
+  for (let i = i0; i <= i1; i++) for (let k = 0; k < 24; k++) hrs[k] += D.hours[i][k];
+  const tot = hrs.reduce((a, b) => a + b, 0) || 1;
+  barChart($("hourChart"), hrs.map((v) => [{ value: v, color: "var(--s1)" }]), {
+    labels: hrs.map((_, k) => String(k)), fmtY: fmtAxis, height: 200, aria: T("hours_title"),
+    tooltip: (k) => ({ title: `${String(k).padStart(2, "0")}:00 – ${String(k).padStart(2, "0")}:59`,
+                       rows: [{ color: "var(--s1)", value: fmt(hrs[k]), label: pct(hrs[k] / tot) }] }),
+  });
+}
+
+function pathCell(p) {
+  const shown = p.length > 48 ? "…" + p.slice(-47) : p;
+  return { node: document.createTextNode(shown), title: p, noNum: true };
+}
+
+function renderProjects() {
+  const [i0, i1] = rangeIdx();
+  const sessCount = {};
+  for (const s of D.sessions) if (sumSparse(s.days, i0, i1).req) sessCount[s.project] = (sessCount[s.project] || 0) + 1;
+  const list = D.projects.map((p) => ({ p, s: sumSparse(p.days, i0, i1) })).filter((x) => x.s.req)
+    .sort((a, b) => b.s.total - a.s.total).slice(0, 15);
+  table($("projectTable"), [T("c_project"), T("c_sessions"), T("c_req"), T("c_total"), T("c_cost")],
+    list.map(({ p, s }) => [pathCell(p.name), String(sessCount[p.name] || 0), full(s.req), fmt(s.total), usd(s.cost)]), 1);
+}
+
+function renderSessions() {
+  const [i0, i1] = rangeIdx();
+  const list = D.sessions.map((x) => ({ x, s: sumSparse(x.days, i0, i1) })).filter((y) => y.s.req)
+    .sort((a, b) => b.s.total - a.s.total).slice(0, 15);
+  table($("sessionTable"), [T("c_session"), T("c_project"), T("c_start"), T("c_end"), T("c_models"), T("c_req"), T("c_total"), T("c_cost")],
+    list.map(({ x, s }) => [x.id.slice(0, 8), pathCell(x.project || "?"), dateTime(x.first), dateTime(x.last),
+      x.models.slice(0, 2).map(short).join(", "), full(s.req), fmt(s.total), usd(s.cost)]), 5);
+}
+
+// ---------- theme & language ----------
+function isDark() {
+  const t = document.documentElement.dataset.theme;
+  if (t) return t === "dark";
+  return matchMedia("(prefers-color-scheme: dark)").matches;
+}
+const savedTheme = store.get("tm-theme");
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+$("themeBtn").addEventListener("click", () => {
+  const next = isDark() ? "light" : "dark";
+  document.documentElement.dataset.theme = next; store.set("tm-theme", next); renderHeader();
+});
+$("langBtn").addEventListener("click", () => {
+  lang = lang === "vi" ? "en" : "vi"; store.set("tm-lang", lang); renderAll();
+});
+
+function renderAll() {
+  if (!D.days || !D.days.length) {
+    $("app").textContent = "";
+    $("app").appendChild(h("p", "empty", T("no_data")));
+    return;
+  }
+  assignColors();
+  renderHeader();
+  if (D.forecast) renderNow();
+  renderFilters();
+  renderRange();
+}
+
+let resizeTimer = null;
+let lastW = innerWidth;
+addEventListener("resize", () => {
+  if (innerWidth === lastW) return;
+  lastW = innerWidth;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderAll, 150);
+});
+
+if (D.meta && D.meta.live) {
+  setInterval(async () => {
+    try {
+      const r = await fetch("api/data", { cache: "no-store" });
+      if (r.ok) { D = await r.json(); renderAll(); }
+    } catch (e) { /* keep the last render */ }
+  }, 60000);
+}
+
+renderAll();
+})();
+</script>
+</body>
+</html>

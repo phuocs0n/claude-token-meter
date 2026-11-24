@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+.claude/
+# generated dashboards contain your own usage data and project paths
+token-meter-dashboard.html
+*.dashboard.html

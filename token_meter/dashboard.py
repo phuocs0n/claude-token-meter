@@ -109,16 +109,23 @@ def write(path, data: dict) -> Path:
     return out
 
 
-def serve(args, collect) -> int:
-    """Serve the dashboard on localhost; data is re-read at most every 30 seconds."""
+APP_ID = "claude-token-meter"
+
+
+def make_server(args, collect, port=None):
+    """Bind the live dashboard server without starting it; returns (httpd, url).
+
+    Data is re-read at most every 30 seconds; ``httpd.get_data(force=True)`` or
+    ``/api/data?refresh=1`` reads it again now. Raises OSError if the port is taken.
+    """
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     lock = threading.Lock()
     cache = {"at": 0.0, "data": None}
 
-    def current():
+    def current(force=False):
         with lock:
-            if cache["data"] is None or time.time() - cache["at"] > 30:
+            if force or cache["data"] is None or time.time() - cache["at"] > 30:
                 res, records, unknown = collect(args)
                 cache["data"] = payload(res, records, unknown, args.window,
                                         datetime.now().astimezone(), live=True)
@@ -127,11 +134,15 @@ def serve(args, collect) -> int:
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - http.server naming
-            route = self.path.split("?", 1)[0]
+            route, _, query = self.path.partition("?")
+            force = "refresh=1" in query.split("&")
             if route in ("/", "/index.html"):
-                body, ctype = render_html(current()).encode("utf-8"), "text/html; charset=utf-8"
+                body, ctype = render_html(current(force)).encode("utf-8"), "text/html; charset=utf-8"
             elif route == "/api/data":
-                body, ctype = to_json(current()).encode("utf-8"), "application/json; charset=utf-8"
+                body, ctype = to_json(current(force)).encode("utf-8"), "application/json; charset=utf-8"
+            elif route == "/api/ping":
+                body = to_json({"app": APP_ID, "version": __version__}).encode("utf-8")
+                ctype = "application/json; charset=utf-8"
             else:
                 self.send_error(404)
                 return
@@ -151,12 +162,18 @@ def serve(args, collect) -> int:
         allow_reuse_address = os.name != "nt"
         daemon_threads = True
 
+    httpd = Server((args.host, args.port if port is None else port), Handler)
+    httpd.get_data = current
+    return httpd, f"http://{args.host}:{httpd.server_address[1]}/"
+
+
+def serve(args, collect) -> int:
+    """Serve the dashboard on localhost until Ctrl+C."""
     try:
-        httpd = Server((args.host, args.port), Handler)
+        httpd, url = make_server(args, collect)
     except OSError as exc:
         print(t("port_busy", port=args.port, alt=args.port + 1, err=exc), file=sys.stderr)
         return 1
-    url = f"http://{args.host}:{httpd.server_address[1]}/"
     print(t("serving", url=url), flush=True)
     if not args.no_open:
         import webbrowser

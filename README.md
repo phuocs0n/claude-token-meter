@@ -1,10 +1,33 @@
 # Claude Token Meter
 
 [![tests](https://github.com/phuocs0n/claude-token-meter/actions/workflows/test.yml/badge.svg)](https://github.com/phuocs0n/claude-token-meter/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/phuocs0n/claude-token-meter)](https://github.com/phuocs0n/claude-token-meter/releases/latest)
 
 Công cụ mã nguồn mở để xem **bạn đã dùng những model Claude nào**, **đã dùng bao nhiêu token**, và **ước lượng sẽ dùng bao nhiêu token** nếu giữ tốc độ hiện tại. Viết bằng Python thuần, không cần thư viện ngoài, không cần API key, chạy hoàn toàn trên máy bạn.
 
 *(English below.)*
+
+## Tải app (không cần cài Python)
+
+Vào trang [**Releases**](https://github.com/phuocs0n/claude-token-meter/releases/latest) và tải file cho máy của bạn:
+
+| Máy | File | Cách cài |
+|---|---|---|
+| Windows 10/11 (64-bit) | `ClaudeTokenMeter-Setup-<phiên bản>.exe` | Chạy file, bấm **Next** đến hết. App cài cho riêng tài khoản của bạn, không cần quyền admin. Lần sau mở từ Start menu: **Claude Token Meter**. |
+| Windows, bản không cần cài | `ClaudeTokenMeter-<phiên bản>-windows-x64-portable.zip` | Giải nén, chạy `ClaudeTokenMeter.exe`. |
+| macOS (chip Apple M1 trở lên) | `ClaudeTokenMeter-<phiên bản>-macos-arm64.zip` | Giải nén, kéo `ClaudeTokenMeter.app` vào **Applications**. |
+| Linux (x64) | `ClaudeTokenMeter-<phiên bản>-linux-x64.tar.gz` | `tar xzf ClaudeTokenMeter-*.tar.gz` rồi chạy `./ClaudeTokenMeter/ClaudeTokenMeter`. |
+
+Khi mở app, bạn thấy một cửa sổ nhỏ gồm token hôm nay, tốc độ 7 ngày, dự báo 30 ngày tới và phiên 5 giờ hiện tại. Dashboard đầy đủ mở trong cửa sổ riêng: Windows dùng Edge ở chế độ app, macOS và Linux dùng trình duyệt mặc định. Số liệu tự cập nhật mỗi phút. Đóng cửa sổ nhỏ là tắt app. Nút **English / Tiếng Việt** đổi ngôn ngữ và được nhớ cho lần sau.
+
+App chưa được ký số (chứng chỉ ký số tốn phí), nên lần đầu mở:
+
+- **Windows** có thể hiện "Windows protected your PC": bấm **More info → Run anyway**.
+- **macOS** báo app từ nhà phát triển không xác định: chuột phải vào app → **Open** → **Open**. Nếu vẫn bị chặn, chạy `xattr -dr com.apple.quarantine /Applications/ClaudeTokenMeter.app`.
+
+Gỡ cài đặt trên Windows: **Settings → Apps → Installed apps → Claude Token Meter → Uninstall**.
+
+Muốn dùng lệnh trong terminal (`token-meter ...`), hoặc dùng máy Mac chip Intel: chạy từ mã nguồn theo phần [Cách chạy](#cách-chạy) bên dưới.
 
 ## Tính năng
 
@@ -14,6 +37,7 @@ Công cụ mã nguồn mở để xem **bạn đã dùng những model Claude n�
 - **Cửa sổ 5 giờ**: lượng đã dùng trong cửa sổ hiện tại, tốc độ token/phút, dự kiến khi hết cửa sổ, so với cửa sổ lớn nhất trước đây.
 - **Chi phí ước tính** theo bảng giá API công khai (có thể thay bằng bảng giá của bạn).
 - **Dashboard HTML**: một file duy nhất, chạy offline, có biểu đồ, bộ lọc thời gian, giao diện sáng/tối, tiếng Việt/English. Có chế độ `serve` tự cập nhật mỗi 60 giây.
+- **App cho Windows, macOS, Linux**: cài như phần mềm bình thường, không cần Python.
 - Xuất **JSON** cho mọi lệnh để dùng trong script khác.
 
 ## Dữ liệu lấy từ đâu
@@ -89,6 +113,8 @@ token-meter serve                  # dashboard trực tiếp tại http://127.0.
 ```
 
 Với `serve`, giữ cửa sổ terminal mở trong lúc xem; bấm **Ctrl+C** để dừng.
+
+Cài theo Cách B còn có lệnh `token-meter-app`: mở app có cửa sổ nhỏ giống bản tải về, không cần giữ terminal.
 
 > File dashboard chứa số liệu sử dụng và đường dẫn các dự án của bạn. Đừng đưa nó lên mạng nếu không muốn người khác thấy.
 
@@ -194,6 +220,18 @@ Cấu trúc mã:
 | `token_meter/report.py`, `i18n.py` | bảng chữ cho terminal, tiếng Việt / English |
 | `token_meter/dashboard.py`, `dashboard.html` | dashboard HTML và server trực tiếp |
 | `token_meter/cli.py` | các lệnh |
+| `token_meter/app.py` | app desktop: cửa sổ nhỏ (tkinter) chạy dashboard ở nền |
+| `packaging/` | build app bằng PyInstaller, bộ cài Windows (Inno Setup), biểu tượng |
+
+### Tự build app
+
+```bash
+pip install pyinstaller
+python packaging/build.py                        # tạo dist/ClaudeTokenMeter (macOS: dist/ClaudeTokenMeter.app) rồi tự kiểm tra
+python packaging/build.py --installer --package  # Windows: thêm bộ cài Setup .exe (cần Inno Setup 6) và các file phát hành trong dist/release
+```
+
+Phát hành phiên bản mới: tăng `__version__` trong `token_meter/__init__.py`, commit, rồi đẩy tag, ví dụ `git tag v0.2.0` và `git push origin v0.2.0`. Workflow [release.yml](.github/workflows/release.yml) build app trên Windows, macOS, Linux và tạo GitHub Release kèm các file tải về.
 
 Đóng góp rất được hoan nghênh: mở issue hoặc pull request.
 
@@ -203,7 +241,9 @@ Cấu trúc mã:
 
 **Claude Token Meter** shows which Claude models you have used, how many tokens they took, and how many you will use at your current rate. It reads the JSONL session logs that Claude Code (CLI, the Code tab of the Claude desktop app, IDE extensions, Agent SDK) writes to `~/.claude/projects/`. Pure Python 3.11+, no dependencies, no API key, nothing leaves your machine.
 
-**How to run** (Python 3.11+):
+**Desktop app** (no Python needed): download it from [Releases](https://github.com/phuocs0n/claude-token-meter/releases/latest): `ClaudeTokenMeter-Setup-<version>.exe` for Windows 10/11 (per-user install, no admin rights), the `-windows-x64-portable.zip`, `-macos-arm64.zip` (Apple Silicon) or `-linux-x64.tar.gz`. The app shows today's tokens, the 7-day rate, the 30-day forecast and the current 5-hour window in a small window, and opens the full dashboard in its own window. Closing the small window quits. The builds are not code-signed: on Windows choose **More info → Run anyway** in SmartScreen; on macOS right-click the app → **Open** the first time. To build it yourself: `pip install pyinstaller` and `python packaging/build.py`.
+
+**How to run from source** (Python 3.11+):
 
 ```bash
 git clone https://github.com/phuocs0n/claude-token-meter.git

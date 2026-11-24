@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-token-meter"
-version = "0.1.0"
+dynamic = ["version"]
 description = "See which Claude models you used, how many tokens they took, and how many you will use at your current rate - from local Claude Code / Claude desktop logs."
 readme = "README.md"
 license = { text = "MIT" }
@@ -16,6 +16,8 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Environment :: Console",
+  "Environment :: Win32 (MS Windows)",
+  "Environment :: MacOS X",
 ]
 
 [project.urls]
@@ -25,8 +27,14 @@ Issues = "https://github.com/phuocs0n/claude-token-meter/issues"
 [project.scripts]
 token-meter = "token_meter.cli:main"
 
+[project.gui-scripts]
+token-meter-app = "token_meter.app:main"
+
 [tool.setuptools]
 packages = ["token_meter"]
 
+[tool.setuptools.dynamic]
+version = { attr = "token_meter.__version__" }
+
 [tool.setuptools.package-data]
-token_meter = ["dashboard.html"]
+token_meter = ["dashboard.html", "icon.png"]

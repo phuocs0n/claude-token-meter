@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import tempfile
+import threading
 import unittest
 from datetime import datetime, timedelta, timezone
 
@@ -11,6 +12,13 @@ from token_meter import analysis, cli, loader
 from token_meter.forecast import forecast, linear_fit
 from token_meter.loader import Record
 from token_meter.pricing import Pricer, normalize_model
+
+try:
+    import tkinter
+    tkinter.Tcl()
+    HAVE_TCL = True
+except Exception:  # noqa: BLE001 - no Tcl/Tk on this Python
+    HAVE_TCL = False
 
 
 def entry(msg_id, req_id, ts, model="claude-opus-5-5", inp=10, out=100, cw=0, cr=0, c1h=0, **extra):
@@ -106,6 +114,34 @@ class LoaderTests(unittest.TestCase):
                 code = cli.main(["serve", "--path", self.root, "--no-open", "--port", str(port), "--lang", "en"])
         self.assertEqual(code, 1)
         self.assertIn(f"Could not open port {port}", err.getvalue())
+
+    def test_app_server_and_summary(self):
+        from token_meter import app, dashboard
+        args = app.server_args([self.root])
+        httpd, url = dashboard.make_server(args, cli.collect, 0)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            self.assertTrue(app.running_at(url))
+            data = json.loads(app._get(url + "api/data?refresh=1"))
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+        self.assertEqual(len(data["models"]), 2)
+
+        res, records, unknown = cli.collect(args)
+        last = records[-1].ts
+        stats = app.summarize(dashboard.payload(res, records, unknown, 7, last + timedelta(hours=1)), now=last)
+        self.assertEqual(set(stats), set(app.App.CARDS))
+        self.assertEqual(stats["today"][0], "60")  # the 2026-11-02 reply: 10 in + 50 out
+        self.assertIsNone(app.summarize({"forecast": None}))
+
+    @unittest.skipUnless(HAVE_TCL, "tkinter / Tcl not available")
+    def test_app_self_test(self):
+        from token_meter import app
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(app.main(["--self-test", "--path", self.root]), 0)
+        self.assertIn("self-test: OK", out.getvalue())
 
 
 class PricingTests(unittest.TestCase):

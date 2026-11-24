@@ -28,19 +28,88 @@ Công cụ **chỉ đọc** các file này, không sửa và không gửi dữ l
 
 > Lưu ý: các cuộc trò chuyện trên claude.ai (web, tab Chat của app) không lưu số token trên máy, nên không đo được bằng công cụ này.
 
-## Cài đặt
+## Cách chạy
 
-Cần Python 3.11 trở lên.
+### Bước 1. Cài Python 3.11 trở lên
+
+Kiểm tra bằng:
+
+```bash
+python --version
+```
+
+Nếu máy chưa có Python hoặc phiên bản thấp hơn 3.11:
+
+- **Windows**: chạy `winget install Python.Python.3.13`, hoặc tải từ [python.org](https://www.python.org/downloads/) và nhớ tick **Add python.exe to PATH** khi cài.
+- **macOS**: `brew install python`
+- **Linux**: dùng trình quản lý gói của bản phân phối, ví dụ `sudo apt install python3` (khi đó gõ `python3` thay cho `python`).
+
+Bạn cũng cần đã dùng Claude Code (CLI, tab Code của app Claude desktop, hoặc tiện ích VS Code / JetBrains) ít nhất một lần để máy có log.
+
+### Bước 2. Tải mã nguồn
 
 ```bash
 git clone https://github.com/phuocs0n/claude-token-meter.git
 cd claude-token-meter
-pip install .
 ```
 
-Sau đó dùng lệnh `token-meter`. Nếu không muốn cài, chạy trực tiếp trong thư mục dự án bằng `python -m token_meter`.
+Nếu không có `git`: trên trang GitHub của dự án bấm **Code → Download ZIP**, giải nén, rồi mở terminal trong thư mục `claude-token-meter-main`.
 
-## Cách dùng
+### Bước 3. Chạy
+
+**Cách A: chạy ngay, không cần cài.** Đứng trong thư mục dự án và gõ:
+
+```bash
+python -m token_meter              # tổng quan
+python -m token_meter forecast     # dự báo
+python -m token_meter dashboard    # mở dashboard trong trình duyệt
+```
+
+**Cách B: cài thành lệnh `token-meter`** để gõ ở bất kỳ thư mục nào:
+
+```bash
+pip install .
+token-meter
+```
+
+Hoặc cài thẳng từ GitHub mà không cần tải mã nguồn về trước:
+
+```bash
+pip install git+https://github.com/phuocs0n/claude-token-meter.git
+```
+
+Hai cách cho kết quả như nhau: `python -m token_meter <lệnh>` và `token-meter <lệnh>` là một.
+
+### Bước 4. Xem dashboard
+
+```bash
+token-meter dashboard              # tạo token-meter-dashboard.html trong thư mục hiện tại rồi mở trình duyệt
+token-meter dashboard --out D:\bao-cao.html --no-open   # lưu chỗ khác, không tự mở
+token-meter serve                  # dashboard trực tiếp tại http://127.0.0.1:8765, tự cập nhật mỗi 60 giây
+```
+
+Với `serve`, giữ cửa sổ terminal mở trong lúc xem; bấm **Ctrl+C** để dừng.
+
+> File dashboard chứa số liệu sử dụng và đường dẫn các dự án của bạn. Đừng đưa nó lên mạng nếu không muốn người khác thấy.
+
+### Cập nhật phiên bản mới
+
+```bash
+git pull
+pip install .        # chỉ cần nếu bạn đã cài theo Cách B
+```
+
+### Gặp lỗi?
+
+| Thông báo | Cách xử lý |
+|---|---|
+| `'token-meter' is not recognized…` / `command not found` | Thư mục `Scripts` của Python chưa có trong PATH. Dùng `python -m token_meter` thay thế, hoặc cài lại Python và tick **Add python.exe to PATH**. |
+| `No module named token_meter` | Bạn đang ở ngoài thư mục dự án mà chưa cài. `cd` vào thư mục dự án, hoặc cài theo Cách B. |
+| `Không tìm thấy dữ liệu sử dụng` | Máy chưa có log Claude Code, hoặc log nằm chỗ khác: chỉ đường dẫn bằng `--path "D:\đường\dẫn\projects"`. |
+| `Không mở được cổng 8765` khi chạy `serve` | Cổng đang bận, thường do một cửa sổ `serve` khác vẫn đang chạy. Đóng cửa sổ đó, hoặc dùng cổng khác: `token-meter serve --port 9000`. |
+| Bảng hiển thị ký tự lạ `?` | Dùng Windows Terminal hoặc PowerShell thay cho cmd cũ, hoặc thêm `--lang en`. |
+
+## Các lệnh
 
 ```bash
 token-meter                  # tổng quan: token theo loại, theo model, dự báo nhanh, cửa sổ 5 giờ
@@ -134,8 +203,18 @@ Cấu trúc mã:
 
 **Claude Token Meter** shows which Claude models you have used, how many tokens they took, and how many you will use at your current rate. It reads the JSONL session logs that Claude Code (CLI, the Code tab of the Claude desktop app, IDE extensions, Agent SDK) writes to `~/.claude/projects/`. Pure Python 3.11+, no dependencies, no API key, nothing leaves your machine.
 
+**How to run** (Python 3.11+):
+
 ```bash
-pip install .
+git clone https://github.com/phuocs0n/claude-token-meter.git
+cd claude-token-meter
+python -m token_meter --lang en  # run without installing, from the project folder
+pip install .                    # or install the token-meter command
+```
+
+Or install straight from GitHub: `pip install git+https://github.com/phuocs0n/claude-token-meter.git`. If `token-meter` is not found after installing, Python's `Scripts` folder is not on your PATH: use `python -m token_meter` instead.
+
+```bash
 token-meter --lang en            # overview
 token-meter models --lang en     # model history and model switches
 token-meter forecast --lang en   # next 24h / 7d / 30d / end of month, current 5-hour window

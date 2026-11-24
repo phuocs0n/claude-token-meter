@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -143,7 +145,17 @@ def serve(args, collect) -> int:
         def log_message(self, *_):
             pass
 
-    httpd = ThreadingHTTPServer((args.host, args.port), Handler)
+    class Server(ThreadingHTTPServer):
+        # On Windows SO_REUSEADDR lets a second server silently bind a port that is
+        # already in use, so leave it off there and let the bind fail instead.
+        allow_reuse_address = os.name != "nt"
+        daemon_threads = True
+
+    try:
+        httpd = Server((args.host, args.port), Handler)
+    except OSError as exc:
+        print(t("port_busy", port=args.port, alt=args.port + 1, err=exc), file=sys.stderr)
+        return 1
     url = f"http://{args.host}:{httpd.server_address[1]}/"
     print(t("serving", url=url), flush=True)
     if not args.no_open:

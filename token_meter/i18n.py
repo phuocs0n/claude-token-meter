@@ -39,6 +39,7 @@ STRINGS = {
         "active": "đang mở",
         "dashboard_written": "Đã tạo dashboard: {path}",
         "serving": "Dashboard đang chạy tại {url}  (Ctrl+C để dừng)",
+        "port_busy": "Không mở được cổng {port}: cổng đang bận hoặc bị chặn ({err}).\nThử cổng khác, ví dụ: token-meter serve --port {alt}",
     },
     "en": {
         "no_data": "No usage data found. Searched: {roots}\nUse --path to point at the folder with Claude Code .jsonl files.",
@@ -75,6 +76,7 @@ STRINGS = {
         "active": "open",
         "dashboard_written": "Dashboard written to {path}",
         "serving": "Dashboard running at {url}  (Ctrl+C to stop)",
+        "port_busy": "Could not open port {port}: it is in use or blocked ({err}).\nTry another port, for example: token-meter serve --port {alt}",
     },
 }
 

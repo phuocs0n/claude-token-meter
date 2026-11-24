@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import socket
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -94,6 +95,17 @@ class LoaderTests(unittest.TestCase):
         os.makedirs(empty)
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(cli.main(["--path", empty]), 1)
+
+    def test_serve_port_busy(self):
+        with socket.socket() as busy:
+            busy.bind(("127.0.0.1", 0))
+            busy.listen()
+            port = busy.getsockname()[1]
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+                code = cli.main(["serve", "--path", self.root, "--no-open", "--port", str(port), "--lang", "en"])
+        self.assertEqual(code, 1)
+        self.assertIn(f"Could not open port {port}", err.getvalue())
 
 
 class PricingTests(unittest.TestCase):
